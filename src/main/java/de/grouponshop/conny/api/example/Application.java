@@ -6,6 +6,7 @@ import java.io.IOException;
 
 import de.grouponshop.conny.api.Client;
 import de.grouponshop.conny.api.AccessToken;
+import de.grouponshop.conny.api.ApiErrorException;
 
 // import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.ClientResponse;
@@ -40,17 +41,39 @@ public class Application {
             return;
         }
         
-        AccessToken token = client.getClientCredentialToken();
-        if (token == null) {
-            System.out.println("Could not generate token, please check your settings.");
+        try {
+            
+            AccessToken token = client.getClientCredentialToken();
+        
+            // test token with simple "GET /token"-call
+            if (!checkToken(token)) {
+                System.out.println("Simple GET /token failed. Token invalid or API broken: " + token);
+                return;
+            }
+            System.out.println("Generated and tested token: " + token);
+        
+            System.out.println("Products: " + token.resource("/product").get(String.class));
+            getProducts(token);
+        } catch (ApiErrorException e) {
+            
+            e.printStackTrace();
+        }
+    }
+    
+    protected boolean getProducts(AccessToken token) {
+        
+        ClientResponse response = token.resource("/product")
+            .get(ClientResponse.class);
+        
+        if (response.getStatus() != 200) {
+            System.out.println("Failed with " + response.getStatus()
+                + ": " + response.getEntity(String.class));
+            return false;
         }
         
-        // test token with simple "GET /token"-call
-        if (!checkToken(token)) {
-            System.out.println("Simple GET /token failed. Token invalid or API broken: " + token);
-            return;
-        }
-        System.out.println("Generated and tested token: " + token);
+        System.out.println("Products: " + response.getEntity(String.class));
+        
+        return true;
     }
     
     protected boolean checkToken(AccessToken token) {
