@@ -10,4 +10,4 @@ Build:
 
 Execute:
 
-    $ java -jar target/api-example-0.0.1.jar
+    $ java -jar target/api-example-0.0.3.jar
