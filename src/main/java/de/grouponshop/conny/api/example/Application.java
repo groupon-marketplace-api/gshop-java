@@ -1,5 +1,6 @@
 package de.grouponshop.conny.api.example;
 
+import java.util.List;
 import java.util.Properties;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -7,6 +8,9 @@ import java.io.IOException;
 import de.grouponshop.conny.api.Client;
 import de.grouponshop.conny.api.AccessToken;
 import de.grouponshop.conny.api.ApiErrorException;
+
+import de.grouponshop.conny.api.resources.Image;
+import de.grouponshop.conny.api.resources.Product;
 
 // import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.ClientResponse;
@@ -44,16 +48,31 @@ public class Application {
         try {
             
             AccessToken token = client.getClientCredentialToken();
-        
+            
             // test token with simple "GET /token"-call
             if (!checkToken(token)) {
                 System.out.println("Simple GET /token failed. Token invalid or API broken: " + token);
                 return;
             }
             System.out.println("Generated and tested token: " + token);
-        
-            System.out.println("Products: " + token.resource("/product").get(String.class));
-            getProducts(token);
+            
+            Product p = token.getOne("1", Product.class);
+            
+            System.out.println("Loaded product: " + p.getSku() 
+            		+ ", attribute set: " + p.getAttributeSet());
+            System.out.println("The product has " + p.getImages().size() + " images.");
+            
+            for (Image img : p.getImages()) {
+            	System.out.println(" - Image '" + img.getId() + "': " + img.getUrl());
+            }
+            
+            List<Product> products = token.get(Product.class);
+            
+            System.out.println("Found " + products.size() + " products on first page.");
+            for (Product product : products) {
+            	
+            	System.out.println(" - Product with sku " + product.getSku());
+            }
         } catch (ApiErrorException e) {
             
             e.printStackTrace();

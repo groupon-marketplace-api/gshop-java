@@ -5,7 +5,6 @@ import javax.xml.bind.annotation.XmlRootElement;
 import java.io.IOException;
 
 import java.util.List;
-import java.util.ArrayList;
 
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.GenericType;
@@ -18,6 +17,11 @@ import org.codehaus.jackson.annotate.*;
 public class ApiErrorException extends IOException {
     
     /**
+	 * 
+	 */
+	private static final long serialVersionUID = -7328529054997647276L;
+
+	/**
      * The response object as returned by the API
      */
     @XmlRootElement
@@ -69,7 +73,7 @@ public class ApiErrorException extends IOException {
             return "Server did not provide any error details";
         }
         
-        String message = "";
+        String message = "(" + getStatus() + ") ";
         
         for (Transfer err : errors) {
             message += err.message + "\n";
@@ -81,7 +85,7 @@ public class ApiErrorException extends IOException {
     /**
      * HTTP response code of the error
      */
-    public int getResponseStatus() {
+    public int getStatus() {
         
         return response.getStatus();
     }

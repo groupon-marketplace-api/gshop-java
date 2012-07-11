@@ -1,10 +1,16 @@
 package de.grouponshop.conny.api;
 
+import java.util.List;
+
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.ws.rs.core.HttpHeaders;
 
+import com.sun.jersey.api.client.GenericType;
 import com.sun.jersey.api.client.WebResource;
-// import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.ClientResponse;
+
+import de.grouponshop.conny.api.annotate.RestResource;
+import de.grouponshop.conny.api.resources.Product;
 
 /**
  * Entry class for making authorized requests
@@ -119,6 +125,57 @@ public class AccessToken {
         
         return client.resource(path)
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+    }
+    
+    /**
+     * Get one item of a resource by its id
+     * 
+     * Will request the API and retrieve a single resource with default
+     * filters. 
+     * 
+     * @param id
+     * @param type
+     * @return
+     * @throws ApiErrorException
+     */
+    public <T> T getOne(String id, Class<T> type) throws ApiErrorException {
+        
+        RestResource desc = type.getAnnotation(RestResource.class);
+        
+        String path = desc.path() + "/" + id;
+        System.out.println("Calling path: " + path);
+        
+        ClientResponse response = resource(path).get(ClientResponse.class);
+        
+        if (response.getStatus() != 200) {
+            
+            throw new ApiErrorException(response);
+        }
+        
+        return response.getEntity(type);
+    }
+    
+    @SuppressWarnings("unchecked")
+	public <T> List<T> get(Class<T> type) throws ApiErrorException {
+    	
+    	RestResource desc = type.getAnnotation(RestResource.class);
+    	
+    	ClientResponse response = resource(desc.path()).get(ClientResponse.class);
+    	
+    	if (response.getStatus() != 200) {
+    		
+    		throw new ApiErrorException(response);
+    	}
+    	
+    	// This code is a little bit ugly but that's Java's idea of
+    	// generics, so... here we go:
+    	if (type.equals(Product.class)) {
+    		
+    		List<Product> products = response.getEntity(new GenericType<List<Product>>(){});
+    		return (List<T>) products;
+    	} else {
+    		throw new RuntimeException("Cannot parse type " + type);
+    	}
     }
     
     /**

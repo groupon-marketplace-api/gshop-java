@@ -40,6 +40,10 @@ public class Client {
      * @return Full API URL, e.g.: https://conny.grouponshop.de/api-v1
      */
     public static String getSiteFromCountry(String country) {
+    	
+    	if (country.equals("it")) {
+    		return "https://conny.groupon-shop.it/api-v1";
+    	}
         
         return "https://conny.grouponshop." + getTldFromCountry(country)
             + "/api-v1";
@@ -65,6 +69,11 @@ public class Client {
         return country;
     }
     
+    public String getResourcePackage() {
+        
+        return "de.grouponshop.conny.api.resources";
+    }
+    
     /**
      * Acquire an access token using the client credential-flow
      * 
@@ -78,7 +87,7 @@ public class Client {
     public AccessToken getClientCredentialToken()
         throws ApiErrorException {
         
-        MultivaluedMap params = new MultivaluedMapImpl();
+        MultivaluedMap<String, String> params = new MultivaluedMapImpl();
         params.add("grant_type", "client_credentials");
         params.add("client_id", id);
         params.add("client_secret", secret);
@@ -129,7 +138,7 @@ public class Client {
     /**
      * General method for getting a token using any parameters you want
      */
-    public AccessToken getToken(MultivaluedMap bodyParams)
+    public AccessToken getToken(MultivaluedMap<String, String> bodyParams)
         throws ApiErrorException {
         
         ClientResponse response = getTokenResource()

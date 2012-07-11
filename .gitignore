@@ -2,3 +2,6 @@ target
 dependency-reduced-pom.xml
 local.properties
 *.DS_Store
+.classpath
+.project
+.settings
