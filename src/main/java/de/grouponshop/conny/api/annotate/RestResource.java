@@ -7,5 +7,5 @@ import java.lang.annotation.RetentionPolicy;
 public @interface RestResource {
     
     String path();
-    String filters() default "";
+    //String filters() default "";
 }

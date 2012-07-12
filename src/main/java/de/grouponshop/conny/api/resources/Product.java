@@ -7,8 +7,8 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import de.grouponshop.conny.api.annotate.RestResource;
 
 @RestResource(
-    path="/product",
-    filters="de.grouponshop.conny.api.filters.SkipLimitFields"
+//	    filters="de.grouponshop.conny.api.filters.PaginationAndFields",
+    path="/product"
 )
 public class Product {
 	
