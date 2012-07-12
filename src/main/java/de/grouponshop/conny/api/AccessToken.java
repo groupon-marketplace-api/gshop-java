@@ -2,14 +2,19 @@ package de.grouponshop.conny.api;
 
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MultivaluedMap;
+
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.sun.jersey.api.client.GenericType;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.core.util.MultivaluedMapImpl;
 
 import de.grouponshop.conny.api.annotate.RestResource;
+import de.grouponshop.conny.api.filters.QueryFilter;
 import de.grouponshop.conny.api.resources.Product;
 
 /**
@@ -30,75 +35,22 @@ import de.grouponshop.conny.api.resources.Product;
  *       so we don't reacquire tokens on program launch when the one from the
  *       last run would be perfectly fine still.
  */
+@JsonIgnoreProperties({ "expires_at", "expires_in", "client_id", "merchant_id", "token_type", "scope" })
 public class AccessToken {
     
     /**
      * The client instance used to make requests to the API
      */
-    Client client;
+    private Client client;
     
     /**
      * The actual token used for authorization
      */
-    String token;
+    private String token;
     
-    /**
-     * This class mirrors the structure of the API response for the /token
-     * endpoint
-     */
-    @XmlRootElement
-    public static class Transfer {
-        
-        /**
-         * UNIX timestamp in seconds when this token expires
-         */
-        public int expires_at;
-        
-        /**
-         * Time in seconds until the token expires, can be used to
-         * check if server-time is as expected
-         * 
-         * @see expires_at
-         */
-        public int expires_in;
-        
-        /**
-         * The client-id passed when creating this token
-         */
-        public String client_id;
-        
-        /**
-         * Id of the merchant this token (and the client) belongs to
-         */
-        public int merchant_id;
-        
-        /**
-         * The actual token
-         */
-        public String access_token;
-        
-        /**
-         * Should always be "bearer"
-         */
-        public String token_type;
-        
-        /**
-         * May contain specific permissions in the future, for now
-         * it's always an empty string
-         */
-        public String scope;
-    }
-    
-    /**
-     * Create token directly from response data
-     * 
-     * @param client The Client instance used to make requests to the API
-     * @param data Information about a previously acquired token
-     */
-    public AccessToken(Client client, Transfer data) {
-        
-        this.client = client;
-        this.token = data.access_token;
+    public AccessToken() {
+    	
+    	// create without any information
     }
     
     /**
@@ -111,8 +63,8 @@ public class AccessToken {
      */
     public AccessToken(Client client, String token) {
 
-        this.client = client;
-        this.token = token;
+        this.setClient(client);
+        this.setToken(token, true);
     }
     
     /**
@@ -123,29 +75,46 @@ public class AccessToken {
      */
     public WebResource.Builder resource(String path) {
         
-        return client.resource(path)
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        return authenticate(getClient().resource(path));
+    }
+    
+    /**
+     * Prepare resource including query string
+     * 
+     * @param path
+     * @param query
+     * @return
+     */
+    public WebResource.Builder resource(String path, MultivaluedMap<String, String> query) {
+    	
+    	return authenticate(getClient().resource(path, query));
+    }
+    
+    public WebResource.Builder authenticate(WebResource.Builder request) {
+    	
+    	return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + getToken());
     }
     
     /**
      * Get one item of a resource by its id
      * 
      * Will request the API and retrieve a single resource with default
-     * filters. 
+     * filters. If you pass null as the id, it will treat the resource
+     * itself as a "single item"-resource.
      * 
      * @param id
      * @param type
      * @return
      * @throws ApiErrorException
      */
-    public <T> T getOne(String id, Class<T> type) throws ApiErrorException {
+    public <T> T getOne(String id, MultivaluedMap<String, String> queryParams, Class<T> type) throws ApiErrorException {
         
         RestResource desc = type.getAnnotation(RestResource.class);
         
-        String path = desc.path() + "/" + id;
+        String path = id != null ? desc.path() + "/" + id : desc.path();
         System.out.println("Calling path: " + path);
         
-        ClientResponse response = resource(path).get(ClientResponse.class);
+        ClientResponse response = resource(path, queryParams).get(ClientResponse.class);
         
         if (response.getStatus() != 200) {
             
@@ -154,13 +123,37 @@ public class AccessToken {
         
         return response.getEntity(type);
     }
+
+    /**
+     * Short-hand for getOne without query params
+     * 
+     * @param id
+     * @param type
+     * @return
+     * @throws ApiErrorException
+     */
+	public <T> T getOne(String id, Class<T> type) throws ApiErrorException {
+		
+		return getOne(id, new MultivaluedMapImpl(), type);
+	}
     
+    /**
+     * Query a resource collection
+     * 
+     * This will always try and convert the resource to a collection of T.
+     * If you want a single item, use getOne(null, Product.class).
+     * 
+     * @param type
+     * @return
+     * @throws ApiErrorException
+     */
     @SuppressWarnings("unchecked")
-	public <T> List<T> get(Class<T> type) throws ApiErrorException {
+	public <T> List<T> get(Class<T> type, MultivaluedMap<String, String> queryParams) throws ApiErrorException {
     	
     	RestResource desc = type.getAnnotation(RestResource.class);
     	
-    	ClientResponse response = resource(desc.path()).get(ClientResponse.class);
+    	ClientResponse response = resource(desc.path(), queryParams)
+    			.get(ClientResponse.class);
     	
     	if (response.getStatus() != 200) {
     		
@@ -179,11 +172,63 @@ public class AccessToken {
     }
     
     /**
+     * Short-hand for requesting a resource-collection with standard
+     * filters
+     * 
+     * @param type
+     * @return
+     * @throws ApiErrorException
+     */
+    public <T> List<T> get(Class<T> type, QueryFilter filter) throws ApiErrorException {
+    	
+    	return get(type, filter.toQueryParams());
+    }
+    
+    /**
+     * Short-hand for requesting a resource-collection without query
+     * parameters
+     * 
+     * @param type
+     * @return
+     * @throws ApiErrorException
+     */
+    public <T> List<T> get(Class<T> type) throws ApiErrorException {
+    	
+    	return get(type, new MultivaluedMapImpl());
+    }
+    
+    /**
      * Just output the raw token when converting this class to a string
      */
     @Override
     public String toString() {
         
-        return token;
+        return getToken();
     }
+    
+    public void setToken(String token, boolean loadInfo) {
+    	
+    	this.token = token;
+    }
+
+    @JsonProperty(value = "access_token")
+	public String getToken() {
+		return token;
+	}
+
+    @JsonProperty(value = "access_token")
+	public void setToken(String token) {
+    	
+    	// set token but don't request info since this is
+    	// used to serialize a token
+    	setToken(token, false);
+	}
+
+	public Client getClient() {
+		return client;
+	}
+
+	public void setClient(Client client) {
+		this.client = client;
+	}
 }

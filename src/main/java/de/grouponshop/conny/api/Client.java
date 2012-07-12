@@ -5,7 +5,6 @@ import com.sun.jersey.core.util.MultivaluedMapImpl;
 
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.ClientResponse;
-
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 
 /**
@@ -134,6 +133,16 @@ public class Client {
         
         return resource;
     }
+
+	public WebResource.Builder resource(String path, MultivaluedMap<String, String> query) {
+		
+        WebResource.Builder resource = getJerseyClient().resource(site + path)
+        		.queryParams(query)
+                .type("application/json")
+                .accept("application/json");
+		
+		return resource;
+	}
     
     /**
      * General method for getting a token using any parameters you want
@@ -149,9 +158,10 @@ public class Client {
             //return null;
         }
         
-        AccessToken.Transfer transfer =
-            response.getEntity(AccessToken.Transfer.class);
+        AccessToken token =
+            response.getEntity(AccessToken.class);
+        token.setClient(this);
         
-        return new AccessToken(this, transfer);
+        return token;
     }
 }
